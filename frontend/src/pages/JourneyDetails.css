@@ -1,0 +1,388 @@
+.journey-details-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Header with Actions */
+.journey-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1rem 0;
+}
+
+.public-badge {
+  flex: 1;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  color: #333;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.shared-badge-large {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: var(--lh-accent);
+  color: var(--lh-primary);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 0.5rem;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.action-btn:hover {
+  background: #f5f5f5;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.action-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.action-btn.active svg {
+  color: white !important;
+  fill: white !important;
+  stroke: white !important;
+}
+
+.action-btn.active svg polygon {
+  fill: white !important;
+  stroke: white !important;
+}
+
+/* Favorite button specific styling */
+.favorite-action-btn {
+  position: relative;
+}
+
+.favorite-action-btn.active {
+  background: var(--lh-accent) !important;
+  border-color: var(--lh-accent) !important;
+  color: var(--lh-primary) !important;
+}
+
+.favorite-action-btn.active svg {
+  color: var(--lh-primary) !important; /* Dark color on yellow background */
+  fill: var(--lh-primary) !important;
+  stroke: var(--lh-primary) !important;
+}
+
+.favorite-action-btn.active svg polygon {
+  fill: var(--lh-primary) !important;
+  stroke: var(--lh-primary) !important;
+}
+
+.favorite-action-btn:not(.active) svg {
+  color: #666 !important;
+  fill: none !important;
+  stroke: #666 !important;
+  stroke-width: 2;
+}
+
+.favorite-action-btn:not(.active):hover svg {
+  color: var(--lh-accent) !important;
+  stroke: var(--lh-accent) !important;
+}
+
+.action-btn.delete:hover {
+  background: #fee;
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+/* Main Journey Card */
+.journey-details-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.journey-details-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+}
+
+/* Transport Badge */
+.transport-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--lh-primary), var(--lh-primary-light));
+  border-radius: var(--radius-sm);
+  color: white;
+  font-weight: 500;
+  margin-bottom: 2rem;
+}
+
+.transport-badge svg {
+  color: white;
+}
+
+.transport-badge span {
+  color: white;
+}
+
+/* Route Display */
+.route-display {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  padding: 2rem 0;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.route-location {
+  text-align: center;
+}
+
+.airport-code-large {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 2px;
+}
+
+.location-name-large {
+  font-size: 1.125rem;
+  color: #666;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.datetime-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #888;
+  margin-top: 0.25rem;
+}
+
+/* Route Path */
+.route-path {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  padding: 1rem 0;
+}
+
+.path-line-large {
+  width: 2px;
+  height: 80px;
+  background: linear-gradient(180deg, var(--primary-color), var(--secondary-color));
+  position: relative;
+}
+
+.path-line-large::before,
+.path-line-large::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-color);
+}
+
+.path-line-large::before {
+  top: -4px;
+}
+
+.path-line-large::after {
+  bottom: -4px;
+  background: var(--secondary-color);
+}
+
+.plane-icon-large {
+  color: var(--primary-color);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.duration-badge {
+  background: var(--gradient-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+/* Journey Stats Grid */
+.journey-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.stat-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.stat-box:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(5, 35, 75, 0.1);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #888;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .journey-details-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .header-actions {
+    justify-content: center;
+  }
+
+  .journey-details-card {
+    padding: 1.5rem;
+  }
+
+  .route-display {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .route-path {
+    order: 2;
+    flex-direction: row;
+  }
+
+  .path-line-large {
+    width: 80px;
+    height: 2px;
+  }
+
+  .path-line-large::before,
+  .path-line-large::after {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .path-line-large::before {
+    left: -4px;
+    top: 50%;
+  }
+
+  .path-line-large::after {
+    right: -4px;
+    left: auto;
+    top: 50%;
+  }
+
+  .airport-code-large {
+    font-size: 2rem;
+  }
+
+  .location-name-large {
+    font-size: 1rem;
+  }
+
+  .journey-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

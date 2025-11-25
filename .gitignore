@@ -1,0 +1,123 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.userprefs
+*.pidb
+*.userprefs
+*.config
+*.log
+*.vspscc
+*.vssscc
+*.sln.docstates
+.vs/
+.vscode/
+*.sln.iml
+.idea/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## Test Results
+TestResults/
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+coverage.json
+coverage.cobertura.xml
+lcov.info
+
+## NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+
+## Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+.next/
+out/
+
+## Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+## Docker
+docker-compose.override.yml
+
+## OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+## IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+## Logs
+logs/
+*.log
+
+## Coverage Reports (generated locally, CI will generate its own)
+# Backend coverage
+coverage/
+**/coverage/
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+coverage.json
+coverage.xml
+coverage.info
+
+# Frontend coverage
+frontend/coverage/
+frontend/coverage-summary.json
+**/coverage-summary.json
+lcov.info
+**/lcov.info
+
+# Coverage tools cache
+.nyc_output/
+coverage.lcov
+*.lcov
+htmlcov/
+
+## Misc
+*.bak
+*.tmp
+*.temp
+

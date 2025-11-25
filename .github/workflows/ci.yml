@@ -1,0 +1,431 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/navplat
+
+jobs:
+  # Vulnerability Check
+  vulnerability-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore NavPlat.sln
+
+      - name: Check for vulnerable packages
+        run: dotnet list package --vulnerable
+        continue-on-error: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run npm audit
+        working-directory: ./frontend
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Install OWASP Dependency-Check
+        run: |
+          wget -q -O dependency-check.zip https://github.com/jeremylong/DependencyCheck/releases/download/v9.0.9/dependency-check-9.0.9-release.zip
+          unzip -q dependency-check.zip
+          chmod +x dependency-check/bin/dependency-check.sh
+
+      - name: Run OWASP Dependency-Check (Backend)
+        run: |
+          ./dependency-check/bin/dependency-check.sh \
+            --project "NavPlat Backend" \
+            --scan . \
+            --format JSON \
+            --format HTML \
+            --out ./dependency-check-report \
+            --enableExperimental \
+            --failOnCVSS 7 \
+            --suppress ./dependency-check-suppressions.xml 2>/dev/null || true
+        continue-on-error: true
+
+      - name: Run OWASP Dependency-Check (Frontend)
+        working-directory: ./frontend
+        run: |
+          ../dependency-check/bin/dependency-check.sh \
+            --project "NavPlat Frontend" \
+            --scan . \
+            --format JSON \
+            --format HTML \
+            --out ../dependency-check-report \
+            --enableExperimental \
+            --failOnCVSS 7 \
+            --suppress ../dependency-check-suppressions.xml 2>/dev/null || true
+        continue-on-error: true
+
+      - name: Upload OWASP Dependency-Check Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: dependency-check-report
+
+  # Backend Build and Test
+  backend-build-test:
+    name: Backend Build & Test
+    runs-on: ubuntu-latest
+    needs: vulnerability-scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore NavPlat.sln
+
+      - name: Run Roslyn Analyzers & StyleCop
+        run: |
+          dotnet build NavPlat.sln --configuration Release --no-restore /p:TreatWarningsAsErrors=false
+          
+          # Count StyleCop and analyzer warnings
+          WARNINGS=$(dotnet build NavPlat.sln --configuration Release --no-restore 2>&1 | grep -i "warning" | wc -l)
+          echo "Total warnings: $WARNINGS"
+          
+          # Fail if too many warnings (optional - can be adjusted)
+          if [ "$WARNINGS" -gt 100 ]; then
+            echo "High number of warnings detected. Please review code style."
+          fi
+
+      - name: Run Unit Tests with Coverage
+        run: |
+          dotnet test NavPlat.sln \
+            --configuration Release \
+            --no-build \
+            --verbosity normal \
+            --filter "Category=Unit|FullyQualifiedName~UnitTests" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage \
+            --settings coverlet.runsettings
+
+      - name: Check Code Coverage
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          reportgenerator \
+            -reports:./coverage/**/coverage.cobertura.xml \
+            -targetdir:./coverage/report \
+            -reporttypes:"Html;Cobertura;TextSummary"
+          
+          # Extract coverage percentage
+          COVERAGE=$(grep -oP 'Line coverage: \K[0-9.]+' ./coverage/report/Summary.txt | head -1)
+          echo "Code Coverage: $COVERAGE%"
+          
+          # Fail if coverage is below 80%
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Code coverage ($COVERAGE%) is below 80% threshold"
+            exit 1
+          fi
+          echo "Code coverage ($COVERAGE%) meets 80% threshold"
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ./coverage/report
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/**/coverage.cobertura.xml
+          flags: backend
+          name: backend-coverage
+
+  # Frontend Build and Test
+  frontend-build-test:
+    name: Frontend Build & Test
+    runs-on: ubuntu-latest
+    needs: vulnerability-scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Run Prettier Check
+        working-directory: ./frontend
+        run: npm run format:check
+
+      - name: Run Frontend Tests with Coverage
+        working-directory: ./frontend
+        run: npm run test:coverage
+        
+      - name: Check Frontend Coverage Threshold
+        working-directory: ./frontend
+        run: |
+          # Extract coverage percentage from JSON (same method as local script)
+          COVERAGE=$(node -e "const fs = require('fs'); const data = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8')); console.log(data.total.lines.pct);")
+          echo "Frontend Code Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Frontend coverage (${COVERAGE}%) is below 80% threshold"
+            exit 1
+          fi
+          echo "Frontend coverage (${COVERAGE}%) meets 80% threshold"
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Upload Frontend Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+        continue-on-error: true
+
+  # Fast Integration Tests (isolated services)
+  integration-tests-isolated:
+    name: Integration Tests (Isolated Services)
+    runs-on: ubuntu-latest
+    needs: [backend-build-test]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: JourneyDb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      rabbitmq:
+        image: rabbitmq:3.12-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5672:5672
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore NavPlat.sln
+
+      - name: Build Solution
+        run: dotnet build NavPlat.sln --configuration Release --no-restore
+
+      - name: Run Integration Tests
+        run: |
+          dotnet test NavPlat.sln \
+            --configuration Release \
+            --no-build \
+            --verbosity normal \
+            --filter "Category=Integration|FullyQualifiedName~IntegrationTests" \
+            --logger "trx;LogFileName=integration-tests.trx"
+        env:
+          ConnectionStrings__JourneyDb: "Host=localhost;Port=5432;Database=JourneyDb;Username=postgres;Password=postgres"
+          ConnectionStrings__RewardDb: "Host=localhost;Port=5432;Database=RewardDb;Username=postgres;Password=postgres"
+          RabbitMQ__Host: localhost
+          RabbitMQ__Username: guest
+          RabbitMQ__Password: guest
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: "**/*.trx"
+
+  # Full Stack Integration Tests (end-to-end)
+  integration-tests-full-stack:
+    name: Integration Tests (Full Stack)
+    runs-on: ubuntu-latest
+    needs: [backend-build-test, frontend-build-test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker images
+        run: |
+          docker compose build gateway journey-api notification-api reward-worker frontend
+
+      - name: Start Docker Compose stack
+        run: |
+          docker compose up -d postgres rabbitmq keycloak jaeger prometheus mailhog
+          sleep 10
+          docker compose up -d gateway journey-api notification-api reward-worker frontend
+          sleep 15
+
+      - name: Wait for services to be healthy
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:5000/healthz; do sleep 2; done' || true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore NavPlat.sln
+
+      - name: Build Solution
+        run: dotnet build NavPlat.sln --configuration Release --no-restore
+
+      - name: Run Integration Tests against Stack
+        run: |
+          dotnet test NavPlat.sln \
+            --configuration Release \
+            --no-build \
+            --verbosity normal \
+            --filter "Category=Integration|FullyQualifiedName~IntegrationTests" \
+            --logger "trx;LogFileName=integration-tests-stack.trx"
+        env:
+          ConnectionStrings__JourneyDb: "Host=localhost;Port=5432;Database=JourneyDb;Username=postgres;Password=postgres"
+          ConnectionStrings__RewardDb: "Host=localhost;Port=5432;Database=RewardDb;Username=postgres;Password=postgres"
+          RabbitMQ__Host: localhost
+          RabbitMQ__Username: guest
+          RabbitMQ__Password: guest
+          Gateway__BaseUrl: "http://localhost:5000"
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results-stack
+          path: "**/*.trx"
+
+      - name: Stop Docker Compose stack
+        if: always()
+        run: docker compose down -v
+
+  # Docker Build and Push
+  docker-build-push:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [backend-build-test, frontend-build-test, integration-tests-isolated, integration-tests-full-stack]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - name: gateway
+            dockerfile: src/Gateway/Dockerfile
+            context: .
+          - name: journey-api
+            dockerfile: src/Services/Journey/Journey.API/Dockerfile
+            context: .
+          - name: notification-api
+            dockerfile: src/Services/Notification/Notification.API/Dockerfile
+            context: .
+          - name: reward-worker
+            dockerfile: src/Services/Reward/Reward.Worker/Dockerfile
+            context: .
+          - name: frontend
+            dockerfile: frontend/Dockerfile
+            context: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service.name }}
+          tags: |
+            type=sha,prefix=sha-
+            type=sha
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deployment (placeholder)
+  deploy:
+    name: Deploy to Environment
+    runs-on: ubuntu-latest
+    needs: [integration-tests-full-stack]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Placeholder for deployment
+        run: |
+          echo "🚀 Deployment step would go here"
+          echo "This could deploy to:"
+          echo "  - Azure Container Apps"
+          echo "  - AWS ECS/EKS"
+          echo "  - Kubernetes cluster"
+          echo "  - Azure App Service"

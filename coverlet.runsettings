@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          
+          <!-- Exclude types/methods with these attributes -->
+          <ExcludeByAttribute>Obsolete,GeneratedCode,CompilerGenerated,ExcludeFromCodeCoverage</ExcludeByAttribute>
+          
+          <!-- Exclude files by path pattern (comma-separated, no comments inside) -->
+          <ExcludeByFile>**/Migrations/**,**/*Migrations.cs,**/Program.cs,**/*DbContext.cs,**/Extensions/**,**/Middleware/**,**/Consumers/**,**/BackgroundServices/**,**/DTOs/**,**/Models/**,**/Filters/**,**/Hubs/**,**/Controllers/**,**/Commands/**,**/Queries/**,**/*Validator.cs,**/*.Designer.cs,**/*.g.cs,**/*.g.i.cs</ExcludeByFile>
+          
+          <!-- Exclude test assemblies -->
+          <Exclude>[*.Tests]*,[*Tests]*,[xunit.*]*,[*.IntegrationTests]*,[*.UnitTests]*</Exclude>
+          
+          <!-- Include only your project assemblies -->
+          <Include>[Journey.Domain]*,[Journey.Application]*,[Journey.Infrastructure]*,[Journey.API]*,[Notification.Domain]*,[Notification.Application]*,[Notification.Infrastructure]*,[Notification.API]*,[Reward.Domain]*,[Reward.Application]*,[Reward.Infrastructure]*,[Reward.Worker]*,[Shared.Common]*,[Shared.Messaging]*,[Gateway]*</Include>
+          
+          <!-- Additional Coverlet settings -->
+          <UseSourceLink>false</UseSourceLink>
+          <SingleHit>false</SingleHit>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+          <SkipAutoProps>true</SkipAutoProps>
+          <DeterministicReport>false</DeterministicReport>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

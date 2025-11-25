@@ -1,0 +1,362 @@
+.create-journey-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Header */
+.journey-form-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.journey-form-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2rem;
+}
+
+/* Step Indicator */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+/* Step circle/number container - target direct children that are not spans */
+.step > *:not(span) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #666 !important;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.step.active > *:not(span) {
+  background: var(--primary-color);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(5, 35, 75, 0.2);
+}
+
+.step.completed > *:not(span) {
+  background: #10b981;
+  color: white !important;
+}
+
+/* Ensure Check icon is visible */
+.step.active svg,
+.step.completed svg {
+  color: white !important;
+  stroke: white !important;
+}
+
+/* Step label text */
+.step span {
+  font-size: 0.875rem;
+  color: #999;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.step.active span {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.step.completed span {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.step-line {
+  width: 80px;
+  height: 2px;
+  background: #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.step.completed ~ .step-line {
+  background: #10b981;
+}
+
+/* Wizard Form */
+.journey-wizard-form {
+  background: white;
+  border-radius: 16px;
+  padding: 3rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+.wizard-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  margin: 0 auto 2rem;
+}
+
+.wizard-step h2 {
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2.5rem;
+}
+
+/* Form Fields */
+.form-field {
+  margin-bottom: 2rem;
+}
+
+.form-field label {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.form-field input[type='text'],
+.form-field input[type='number'],
+.form-field input[type='datetime-local'] {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(5, 35, 75, 0.1);
+}
+
+.form-field input.error {
+  border-color: #ef4444;
+}
+
+/* Form Group (used in EditJourney) - same styling as form-field */
+.form-group {
+  margin-bottom: 2rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.form-group input[type='text'],
+.form-group input[type='number'],
+.form-group input[type='datetime-local'] {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(5, 35, 75, 0.1);
+}
+
+.form-group input.error {
+  border-color: #ef4444;
+}
+
+/* DateTime Input - uses same styling as text inputs above */
+
+/* Modern Date Picker Styles */
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: opacity(0.6);
+  transition: filter 0.2s;
+}
+
+input[type='datetime-local']::-webkit-calendar-picker-indicator:hover {
+  filter: opacity(1);
+}
+
+/* Transport Grid */
+.transport-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.transport-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.transport-option:hover {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(5, 35, 75, 0.1);
+}
+
+.transport-option.selected {
+  border-color: var(--primary-color);
+  background: var(--primary-light);
+  box-shadow: 0 4px 12px rgba(5, 35, 75, 0.15);
+}
+
+.transport-option span {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Journey Summary */
+.journey-summary {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  border: 2px solid #e0e0e0;
+}
+
+.journey-summary h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.summary-item {
+  display: flex;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.9375rem;
+}
+
+.summary-item:last-child {
+  border-bottom: none;
+}
+
+.summary-item strong {
+  min-width: 120px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Wizard Actions */
+.wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.wizard-actions .btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Error Message */
+.error-message {
+  display: block;
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .journey-wizard-form {
+    padding: 2rem 1.5rem;
+  }
+
+  .step-indicator {
+    gap: 0.5rem;
+  }
+
+  .step-line {
+    width: 40px;
+  }
+
+  .wizard-step h2 {
+    font-size: 1.5rem;
+  }
+
+  .transport-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .transport-option {
+    padding: 1rem 0.5rem;
+  }
+
+  .wizard-actions {
+    flex-direction: column-reverse;
+  }
+
+  .wizard-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

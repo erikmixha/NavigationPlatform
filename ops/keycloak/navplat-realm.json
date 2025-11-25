@@ -1,0 +1,109 @@
+{
+  "realm": "navplat",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 30,
+  "roles": {
+    "realm": [
+      { "name": "User", "description": "Regular user role" },
+      { "name": "Admin", "description": "Administrator role" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "navplat-gateway",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "gateway-secret",
+      "redirectUris": [
+        "http://localhost:5000/signin-oidc",
+        "http://localhost/signin-oidc",
+        "http://gateway/signin-oidc",
+        "http://localhost:3000/login"
+      ],
+      "webOrigins": [
+        "http://localhost:5000",
+        "http://localhost:3000",
+        "http://gateway"
+      ],
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/login"
+      }
+    },
+    {
+      "clientId": "navplat-api",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "fullScopeAllowed": true
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@navplat.local",
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "admin123", "temporary": false }
+      ],
+      "realmRoles": ["Admin"],
+      "clientRoles": {}
+    },
+    {
+      "username": "testuser",
+      "enabled": true,
+      "email": "user@navplat.local",
+      "firstName": "Test",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "user123", "temporary": false }
+      ],
+      "realmRoles": ["User"],
+      "clientRoles": {}
+    },
+    {
+      "username": "frienduser",
+      "enabled": true,
+      "email": "friend@navplat.local",
+      "firstName": "Friend",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "friend123", "temporary": false }
+      ],
+      "realmRoles": ["User"],
+      "clientRoles": {}
+    },
+    {
+      "username": "service-account-navplat-gateway",
+      "enabled": true,
+      "serviceAccountClientId": "navplat-gateway",
+      "clientRoles": {
+        "realm-management": ["view-users", "manage-users"]
+      }
+    }
+  ]
+}

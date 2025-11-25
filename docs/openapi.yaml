@@ -1,0 +1,1301 @@
+openapi: 3.0.3
+info:
+  title: NavPlat API
+  description: Navigation Platform API Documentation - Complete API specification for Postman and other API clients
+  version: 1.0.0
+  contact:
+    name: NavPlat Team
+    email: support@navplat.local
+
+servers:
+  - url: http://localhost:5000/api
+    description: Local Development Gateway
+  - url: https://api.navplat.local
+    description: Production Gateway
+
+tags:
+  - name: Auth
+    description: Authentication and user management operations
+  - name: Journeys
+    description: Journey CRUD and management operations
+  - name: Admin
+    description: Administrator operations (requires Admin role)
+  - name: Notifications
+    description: Notification operations
+
+paths:
+  /auth/login:
+    get:
+      tags: [Auth]
+      summary: Initiate login flow
+      description: Redirects to Keycloak for OIDC authentication with PKCE. Returns 302 redirect.
+      parameters:
+        - name: returnUrl
+          in: query
+          schema:
+            type: string
+          description: URL to redirect to after successful login
+      responses:
+        '302':
+          description: Redirect to Keycloak for authentication
+        '429':
+          description: Too many login attempts (rate limited)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout user
+      description: Revokes refresh token and clears authentication cookies
+      security:
+        - cookieAuth: []
+      responses:
+        '204':
+          description: Logout successful
+        '401':
+          description: Unauthorized
+
+  /auth/user:
+    get:
+      tags: [Auth]
+      summary: Get current authenticated user
+      description: Returns information about the currently authenticated user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+  /auth/users:
+    get:
+      tags: [Auth]
+      summary: Get list of users
+      description: Returns list of all users (for sharing journeys)
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserInfo'
+        '401':
+          description: Unauthorized
+
+  /auth/refresh:
+    get:
+      tags: [Auth]
+      summary: Refresh access token
+      description: Silently refreshes the access token using the refresh token
+      security:
+        - cookieAuth: []
+      responses:
+        '204':
+          description: Token refreshed successfully
+        '401':
+          description: Unauthorized or refresh token expired
+
+  /journeys:
+    get:
+      tags: [Journeys]
+      summary: Get user's journeys
+      description: Returns paginated list of journeys for the authenticated user (includes own journeys and shared journeys)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: startDateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter journeys starting from this date
+        - name: startDateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter journeys starting until this date
+      responses:
+        '200':
+          description: List of journeys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJourneys'
+        '401':
+          description: Unauthorized
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    post:
+      tags: [Journeys]
+      summary: Create a new journey
+      description: Creates a new journey for the authenticated user. Publishes JourneyCreated domain event.
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJourneyRequest'
+            example:
+              startLocation: "Tirana, AL"
+              startTime: "2025-04-11T08:15:00Z"
+              arrivalLocation: "Durrës, AL"
+              arrivalTime: "2025-04-11T09:05:00Z"
+              transportType: "Commercial"
+              distanceKm: 38.40
+      responses:
+        '201':
+          description: Journey created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateJourneyResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /journeys/{id}:
+    get:
+      tags: [Journeys]
+      summary: Get journey by ID
+      description: Returns journey details. User must own the journey, have it shared with them, or be an Admin.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Journey ID
+      responses:
+        '200':
+          description: Journey details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden - user doesn't have access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+    put:
+      tags: [Journeys]
+      summary: Update journey
+      description: Updates an existing journey. Only the owner can update. Publishes JourneyUpdated domain event.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJourneyRequest'
+      responses:
+        '204':
+          description: Journey updated successfully
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden - user is not the owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+    delete:
+      tags: [Journeys]
+      summary: Delete journey
+      description: Deletes a journey. Only the owner can delete. Publishes JourneyDeleted domain event.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Journey deleted successfully
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden - user is not the owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /journeys/{id}/favorite:
+    post:
+      tags: [Journeys]
+      summary: Add journey to favorites
+      description: Adds a journey to user's favorites. Idempotent operation - safe to call multiple times.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Already in favorites (idempotent response)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Journey is already in favorites"
+        '204':
+          description: Added to favorites
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+    delete:
+      tags: [Journeys]
+      summary: Remove journey from favorites
+      description: Removes a journey from user's favorites
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Removed from favorites
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /journeys/{id}/share:
+    post:
+      tags: [Journeys]
+      summary: Share journey with users
+      description: Shares a journey with one or more users. Recipients will see the journey in their feed. Audits the share action.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareJourneyRequest'
+            example:
+              sharedWithUserIds: ["user-id-1", "user-id-2"]
+      responses:
+        '204':
+          description: Journey shared successfully
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+    get:
+      tags: [Journeys]
+      summary: Get users journey is shared with
+      description: Returns list of user IDs that the journey is shared with
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of user IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden - user doesn't have access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /journeys/{id}/share/{userId}:
+    delete:
+      tags: [Journeys]
+      summary: Unshare journey with user
+      description: Removes sharing of a journey with a specific user. Audits the unshare action.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID to unshare with
+      responses:
+        '204':
+          description: Journey unshared successfully
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Journey or share not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /journeys/{id}/public-link:
+    post:
+      tags: [Journeys]
+      summary: Generate public link for journey
+      description: Generates a unique, revocable public link to view the journey without authentication
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Public link generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicLinkResponse'
+        '404':
+          description: Journey not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+    delete:
+      tags: [Journeys]
+      summary: Revoke public link
+      description: Revokes the public link. Subsequent requests to the link will return 410 Gone.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Public link revoked
+        '404':
+          description: Journey or public link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /journeys/public/{token}:
+    get:
+      tags: [Journeys]
+      summary: Get journey by public link token
+      description: Returns journey details using a public link token. No authentication required.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Public link token
+      responses:
+        '200':
+          description: Journey details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        '404':
+          description: Journey not found or link invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '410':
+          description: Public link has been revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Get user notifications
+      description: Returns list of notifications for the authenticated user
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: isRead
+          in: query
+          schema:
+            type: boolean
+          description: Filter by read status (true/false). Omit to get all notifications.
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+        '401':
+          description: Unauthorized
+
+  /notifications/unread/count:
+    get:
+      tags: [Notifications]
+      summary: Get unread notification count
+      description: Returns the count of unread notifications for the authenticated user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 5
+        '401':
+          description: Unauthorized
+
+  /notifications/{id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notification as read
+      description: Marks a notification as read
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Notification ID
+      responses:
+        '204':
+          description: Notification marked as read
+        '404':
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden - notification belongs to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /notifications/{id}/unread:
+    post:
+      tags: [Notifications]
+      summary: Mark notification as unread
+      description: Marks a notification as unread
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Notification ID
+      responses:
+        '204':
+          description: Notification marked as unread
+        '404':
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Forbidden - notification belongs to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: Get all users with status
+      description: Returns list of all users with their account status. Requires Admin role.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserWithStatus'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin role required
+
+  /admin/users/{userId}/status:
+    patch:
+      tags: [Admin]
+      summary: Update user account status
+      description: Updates a user's account status (Active, Suspended). Records audit and publishes UserStatusChanged event. Requires Admin role.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserStatusUpdate'
+            example:
+              status: "Suspended"
+      responses:
+        '204':
+          description: User status updated successfully
+        '400':
+          description: Bad request - invalid status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin role required
+
+  /admin/journeys:
+    get:
+      tags: [Admin]
+      summary: Get all journeys with filtering
+      description: Returns paginated list of all journeys with advanced filtering options. Requires Admin role.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: userId
+          in: query
+          schema:
+            type: string
+          description: Filter by user ID
+        - name: transportType
+          in: query
+          schema:
+            $ref: '#/components/schemas/TransportType'
+          description: Filter by transport type
+        - name: startDateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter journeys starting from this date
+        - name: startDateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter journeys starting until this date
+        - name: arrivalDateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter journeys arriving from this date
+        - name: arrivalDateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter journeys arriving until this date
+        - name: minDistance
+          in: query
+          schema:
+            type: number
+            format: decimal
+          description: Minimum distance in kilometers
+        - name: maxDistance
+          in: query
+          schema:
+            type: number
+            format: decimal
+          description: Maximum distance in kilometers
+        - name: orderBy
+          in: query
+          schema:
+            type: string
+            enum: [UserId, TransportType, DistanceKm, StartTime]
+          description: Field to sort by
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          description: Sort direction
+      responses:
+        '200':
+          description: List of journeys
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: Total count of journeys matching filters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJourneys'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin role required
+
+  /admin/statistics:
+    get:
+      tags: [Admin]
+      summary: Get system statistics
+      description: Returns overall system statistics (total journeys, users, distance). Requires Admin role.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statistics'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin role required
+
+  /admin/statistics/monthly-distance:
+    get:
+      tags: [Admin]
+      summary: Get monthly distance statistics
+      description: Returns total distance travelled per user per calendar month. Data from CQRS read model. Requires Admin role.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: orderBy
+          in: query
+          schema:
+            type: string
+            enum: [UserId, TotalDistanceKm]
+            default: UserId
+          description: Field to sort by
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          description: Sort direction
+      responses:
+        '200':
+          description: Monthly distance statistics
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: Total count of records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonthlyDistance'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin role required
+
+  /admin/users/{userId}/journeys:
+    get:
+      tags: [Admin]
+      summary: Get journeys for a specific user
+      description: Returns paginated list of journeys for a specific user. Requires Admin role.
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of journeys for the user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJourneys'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin role required
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: .NavPlat.Auth
+      description: HTTP-only cookie containing authentication token
+
+  schemas:
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: "user-123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["User"]
+        isAuthenticated:
+          type: boolean
+          example: true
+
+    UserInfo:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: "user-123"
+        username:
+          type: string
+          example: "johndoe"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+
+    UserWithStatus:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: "user-123"
+        username:
+          type: string
+          example: "johndoe"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        status:
+          type: string
+          enum: [Active, Suspended]
+          example: "Active"
+
+    Journey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        userId:
+          type: string
+          example: "user-123"
+        startLocation:
+          type: string
+          example: "Tirana, AL"
+        startTime:
+          type: string
+          format: date-time
+          example: "2025-04-11T08:15:00Z"
+        arrivalLocation:
+          type: string
+          example: "Durrës, AL"
+        arrivalTime:
+          type: string
+          format: date-time
+          example: "2025-04-11T09:05:00Z"
+        transportType:
+          type: string
+          enum: [Commercial, Cargo, Private, Charter, Military, Helicopter, Other]
+          example: "Commercial"
+        distanceKm:
+          type: number
+          format: decimal
+          example: 38.40
+        isFavorite:
+          type: boolean
+          example: false
+        isShared:
+          type: boolean
+          example: false
+        isDailyGoalAchieved:
+          type: boolean
+          example: false
+
+    CreateJourneyRequest:
+      type: object
+      required: [startLocation, startTime, arrivalLocation, arrivalTime, transportType, distanceKm]
+      properties:
+        startLocation:
+          type: string
+          minLength: 1
+          example: "Tirana, AL"
+        startTime:
+          type: string
+          format: date-time
+          example: "2025-04-11T08:15:00Z"
+        arrivalLocation:
+          type: string
+          minLength: 1
+          example: "Durrës, AL"
+        arrivalTime:
+          type: string
+          format: date-time
+          example: "2025-04-11T09:05:00Z"
+        transportType:
+          type: string
+          enum: [Commercial, Cargo, Private, Charter, Military, Helicopter, Other]
+          example: "Commercial"
+        distanceKm:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 38.40
+
+    UpdateJourneyRequest:
+      type: object
+      required: [startLocation, startTime, arrivalLocation, arrivalTime, transportType, distanceKm]
+      properties:
+        startLocation:
+          type: string
+          minLength: 1
+          example: "Tirana, AL"
+        startTime:
+          type: string
+          format: date-time
+          example: "2025-04-11T08:15:00Z"
+        arrivalLocation:
+          type: string
+          minLength: 1
+          example: "Durrës, AL"
+        arrivalTime:
+          type: string
+          format: date-time
+          example: "2025-04-11T09:05:00Z"
+        transportType:
+          type: string
+          enum: [Commercial, Cargo, Private, Charter, Military, Helicopter, Other]
+          example: "Commercial"
+        distanceKm:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 38.40
+
+    CreateJourneyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    ShareJourneyRequest:
+      type: object
+      required: [sharedWithUserIds]
+      properties:
+        sharedWithUserIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          description: Array of user IDs to share the journey with
+          example: ["user-id-1", "user-id-2"]
+
+    PublicLinkResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "abc123xyz789"
+        url:
+          type: string
+          format: uri
+          example: "http://localhost:3000/journeys/public/abc123xyz789"
+
+    PagedJourneys:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Journey'
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+        totalCount:
+          type: integer
+          example: 150
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        userId:
+          type: string
+          example: "user-123"
+        type:
+          type: string
+          example: "JourneyUpdated"
+        title:
+          type: string
+          example: "Journey Updated: Tirana to Durrës"
+        message:
+          type: string
+          example: "A journey you favorited has been updated. Distance: 38.40 km, Transport: Commercial"
+        isRead:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-04-11T09:15:00Z"
+        journeyId:
+          type: string
+          format: uuid
+          nullable: true
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    Statistics:
+      type: object
+      properties:
+        totalJourneys:
+          type: integer
+          example: 1250
+        totalUsers:
+          type: integer
+          example: 45
+        totalDistanceKm:
+          type: number
+          format: decimal
+          example: 12500.75
+        averageDistanceKm:
+          type: number
+          format: decimal
+          example: 10.00
+
+    MonthlyDistance:
+      type: object
+      required: [userId, year, month, totalDistanceKm]
+      properties:
+        userId:
+          type: string
+          description: User ID
+          example: "user-123"
+        year:
+          type: integer
+          description: Calendar year
+          example: 2025
+        month:
+          type: integer
+          description: Calendar month (1-12)
+          minimum: 1
+          maximum: 12
+          example: 4
+        totalDistanceKm:
+          type: number
+          format: decimal
+          description: Total distance in kilometers for this user in this month
+          example: 125.50
+
+    UserStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [Active, Suspended]
+          description: User account status
+          example: "Active"
+
+    TransportType:
+      type: string
+      enum: [Commercial, Cargo, Private, Charter, Military, Helicopter, Other]
+      description: Type of transport used for the journey
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "https://tools.ietf.org/html/rfc7231#section-6.5.1"
+        title:
+          type: string
+          example: "Bad Request"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "Validation failed"
+        instance:
+          type: string
+          format: uri
+          example: "/api/journeys"
+        traceId:
+          type: string
+          example: "0HN1234567890"
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Validation errors by field name
